@@ -12,7 +12,6 @@ ENV JAVA_VERSION="17"
 ENV ANDROID_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip"
 ENV ANDROID_VERSION="29"
 ENV ANDROID_BUILD_TOOLS_VERSION="29.0.3"
-ENV ANDROID_ARCHITECTURE="x86_64"
 ENV FLUTTER_CHANNEL="stable"
 ENV FLUTTER_VERSION="3.27.0"
 ENV GRADLE_VERSION="7.2"
@@ -22,7 +21,7 @@ ENV FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/$
 ENV FLUTTER_ROOT="/opt/flutter"
 ENV PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/platforms:$FLUTTER_ROOT/bin:$GRADLE_USER_HOME/bin:$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
 
-# Install necessary dependencies for GUI support
+# Install necessary dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     git \
@@ -66,18 +65,18 @@ RUN apt-get update && apt-get install -y \
     x11-xserver-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Install-Gradle
+# Install Gradle
 RUN curl -L $GRADLE_URL -o gradle-$GRADLE_VERSION-bin.zip \
     && unzip gradle-$GRADLE_VERSION-bin.zip \
     && mv gradle-$GRADLE_VERSION $GRADLE_USER_HOME \
     && rm gradle-$GRADLE_VERSION-bin.zip
 
-#Install Google-chrome
+# Install Google Chrome
 RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update && apt-get install -y google-chrome-stable        
 
-#Install Flutter SDK
+# Install Flutter SDK
 RUN curl -o flutter.tar.xz $FLUTTER_URL \
     && mkdir -p $FLUTTER_ROOT \
     && tar xf flutter.tar.xz -C /opt/ \
@@ -89,7 +88,7 @@ RUN curl -o flutter.tar.xz $FLUTTER_URL \
     && flutter doctor \
     && flutter update-packages
 
-# Install-Android SDK
+# Install Android SDK
 RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
     cd ${ANDROID_HOME}/cmdline-tools && \
     curl -o cmdline-tools.zip $ANDROID_TOOLS_URL && \
@@ -97,10 +96,7 @@ RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
     rm cmdline-tools.zip && \
     mv cmdline-tools latest && \
     yes "y" | sdkmanager --licenses && \
-    yes "y" | sdkmanager "platform-tools" "platforms;android-$ANDROID_VERSION" "build-tools;$ANDROID_BUILD_TOOLS_VERSION" "emulator" "system-images;android-$ANDROID_VERSION;default;$ANDROID_ARCHITECTURE"    
-
-# Create an Android emulator
-RUN echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-$ANDROID_VERSION;default;$ANDROID_ARCHITECTURE"
+    yes "y" | sdkmanager "platform-tools" "platforms;android-$ANDROID_VERSION" "build-tools;$ANDROID_BUILD_TOOLS_VERSION" "emulator"
 
 # Config Check
 RUN flutter doctor
@@ -108,5 +104,5 @@ RUN flutter doctor
 # Set the work directory
 WORKDIR /app
 
-# Expose the necessary port numbers (adjust if necessary)
+# Expose the necessary port numbers
 EXPOSE 8080 44300
