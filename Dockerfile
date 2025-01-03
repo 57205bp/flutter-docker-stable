@@ -4,21 +4,34 @@ FROM ubuntu:20.04
 # Set non-interactive installation mode
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Set environment variables for Android and Flutter
+# Environment variables
 ENV ANDROID_HOME=/usr/lib/android-sdk
 ENV ANDROID_SDK_ROOT=$ANDROID_HOME
 ENV FLUTTER_HOME=/flutter
-ENV PATH="$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
+ENV JAVA_VERSION="17"
+ENV ANDROID_TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip"
+ENV ANDROID_VERSION="29"
+ENV ANDROID_BUILD_TOOLS_VERSION="29.0.3"
+ENV ANDROID_ARCHITECTURE="x86_64"
+ENV FLUTTER_CHANNEL="stable"
+ENV FLUTTER_VERSION="3.27.0"
+ENV GRADLE_VERSION="7.2"
+ENV GRADLE_USER_HOME="/opt/gradle"
+ENV GRADLE_URL="https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"
+ENV FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/$FLUTTER_CHANNEL/linux/flutter_linux_$FLUTTER_VERSION-$FLUTTER_CHANNEL.tar.xz"
+ENV FLUTTER_ROOT="/opt/flutter"
+ENV PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/platforms:$FLUTTER_ROOT/bin:$GRADLE_USER_HOME/bin:$PATH:$FLUTTER_HOME/bin:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools"
 
-# Install necessary dependencies for GUI support, Android/Flutter development, Linux development, CMake/Ninja, and Android Emulator
+# Install necessary dependencies for GUI support
 RUN apt-get update && apt-get install -y \
     curl \
     git \
+    gpg \
     unzip \
     xz-utils \
     zip \
     libglu1-mesa \
-    openjdk-17-jdk \
+    openjdk-$JAVA_VERSION-jdk \
     x11-apps \
     cmake \
     clang \
@@ -46,31 +59,50 @@ RUN apt-get update && apt-get install -y \
     libxcb-xinerama0 \
     libxkbcommon-x11-0 \
     libxkbcommon0 \
-    libxcb-xinerama0 \
+    libpulse0 \
+    libxcomposite1 \
+    ssh \
+    xauth \
+    x11-xserver-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install Android SDK
+# Install-Gradle
+RUN curl -L $GRADLE_URL -o gradle-$GRADLE_VERSION-bin.zip \
+    && unzip gradle-$GRADLE_VERSION-bin.zip \
+    && mv gradle-$GRADLE_VERSION $GRADLE_USER_HOME \
+    && rm gradle-$GRADLE_VERSION-bin.zip
+
+#Install Google-chrome
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y google-chrome-stable        
+
+#Install Flutter SDK
+RUN curl -o flutter.tar.xz $FLUTTER_URL \
+    && mkdir -p $FLUTTER_ROOT \
+    && tar xf flutter.tar.xz -C /opt/ \
+    && rm flutter.tar.xz \
+    && git config --global --add safe.directory /opt/flutter \
+    && flutter config --no-analytics \
+    && flutter precache \
+    && yes "y" | flutter doctor --android-licenses \
+    && flutter doctor \
+    && flutter update-packages
+
+# Install-Android SDK
 RUN mkdir -p ${ANDROID_HOME}/cmdline-tools && \
     cd ${ANDROID_HOME}/cmdline-tools && \
-    curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-7583922_latest.zip && \
+    curl -o cmdline-tools.zip $ANDROID_TOOLS_URL && \
     unzip cmdline-tools.zip && \
     rm cmdline-tools.zip && \
-    mv cmdline-tools latest
-
-# Accept Android SDK licenses
-RUN yes | sdkmanager --licenses
-
-# Clean any existing emulator installations and install Android SDK components including system images for emulator
-RUN rm -rf /usr/lib/android-sdk/emulator* && \
-    sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3" "emulator" "system-images;android-30;default;x86_64"
+    mv cmdline-tools latest && \
+    yes "y" | sdkmanager --licenses && \
+    yes "y" | sdkmanager "platform-tools" "platforms;android-$ANDROID_VERSION" "build-tools;$ANDROID_BUILD_TOOLS_VERSION" "emulator" "system-images;android-$ANDROID_VERSION;default;$ANDROID_ARCHITECTURE"    
 
 # Create an Android emulator
-RUN echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-30;default;x86_64"
+RUN echo "no" | avdmanager create avd -n testEmulator -k "system-images;android-$ANDROID_VERSION;default;$ANDROID_ARCHITECTURE"
 
-# Download and install Flutter SDK
-RUN git clone https://github.com/flutter/flutter.git -b stable ${FLUTTER_HOME}
-
-# Run basic check to download Dart SDK
+# Config Check
 RUN flutter doctor
 
 # Set the work directory
