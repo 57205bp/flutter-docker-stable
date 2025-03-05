@@ -1,0 +1,13 @@
+name: "Check for New Flutter Stable Versions"
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+jobs:
+  check_versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install jq & curl
+        run: sudo apt-get install -y jq curl
+      - name: Fetch Latest Flutter Stable Version
+        run: bash scripts/fetch_latest_flutter.sh
