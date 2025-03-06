@@ -1,0 +1,15 @@
+env:
+  GITHUB_TOKEN: ENCRYPTED[!YOUR_ENCRYPTED_TOKEN!]
+
+docker_builder:
+  name: flutter:stable
+  env:
+    matrix:
+      - DOCKER_TAG: stable
+        FLUTTER_VERSION: 3.29.0
+  version_script: docker --version
+  setup_script:
+    - docker buildx create --name multibuilder
+    - docker buildx use multibuilder
+    - docker buildx inspect --bootstrap
+  ci_script: ./build_and_push.sh
